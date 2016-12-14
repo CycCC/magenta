@@ -121,7 +121,9 @@ else
         # Enable Bochs VBE device, which Magenta has a device for
         ARGS+=" -vga std"
     else
-        ARGS+=" -device virtio-gpu-device"
+        # non x86 needs to use virtio gpu for display
+        ARGS+=" -vga none"
+        ARGS+=" -device virtio-gpu-pci"
     fi
 fi
 
@@ -130,18 +132,15 @@ if [ "$DISK" -eq 1 ]; then
         # ahci
         ARGS+=" -drive file=blk.bin,if=none,id=mydisk -device ich9-ahci,id=ahci -device ide-drive,drive=mydisk,bus=ahci.0"
     else
-        # virtio based block device
-        ARGS+=" -drive if=none,file=blk.bin,id=blk,format=raw -device virtio-blk-device,drive=blk"
+        # virtio based block device, pci, transitional
+        ARGS+=" -drive file=blk.bin,format=raw,if=none,id=mydisk"
+        ARGS+=" -device virtio-blk-pci,disable-modern=true,drive=mydisk"
     fi
 fi
 
 if [ "$NET" -eq 1 ]; then
     # virtio based network interface
-    if [ "$ARCH" == "x86-64" ]; then
-        ARGS+=" -netdev type=user,hostname=$IFNAME,id=net0 -device virtio-net-pci,netdev=net0"
-    else
-        ARGS+=" -netdev user,id=vmnic,hostname=$IFNAME -device virtio-net-device,netdev=vmnic"
-    fi
+    ARGS+=" -netdev type=user,hostname=$IFNAME,id=net0 -device virtio-net-pci,netdev=net0"
 fi
 
 if [ "$NET" -eq 2 ]; then
@@ -152,8 +151,6 @@ if [ "$NET" -eq 2 ]; then
     fi
     if [ "$ARCH" == "x86-64" ]; then
         ARGS+=" -device e1000,netdev=net0"
-    else
-        ARGS+=" -device virtio-net-device,netdev=net0"
     fi
 fi
 
@@ -166,6 +163,12 @@ fi
 if [ "$SMP" -ne 1 ]; then
     ARGS+=" -smp $SMP"
 fi
+
+# start a few extra harmless virtio devices that can be ignored
+ARGS+=" -device virtio-serial-pci"
+ARGS+=" -device virtio-rng-pci"
+ARGS+=" -device virtio-mouse-pci"
+ARGS+=" -device virtio-keyboard-pci"
 
 case $ARCH in
     arm32)
